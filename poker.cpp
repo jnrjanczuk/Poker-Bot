@@ -28,7 +28,7 @@ struct Card {
 struct Player {
     string name;
     vector<Card> hand;
-    double chipCount = 0;
+    int chipCount = 0;
     bool CPU = true;
 
     // Player constructor
@@ -52,12 +52,12 @@ struct Deck {
     }
 }; // Deck
 
-struct Hand {
+struct Game {
     vector<Player> players;
     queue<Card> cards;
     size_t bigBlind;
     vector<Card> board;
-}; // Hand
+}; // Game
 
 // Helper Functions
 
@@ -78,12 +78,12 @@ size_t prev(size_t pos, size_t n) {
     return (pos - 1) % n;
 }
 
-void deal(Hand& hand, Deck& deck) {
+void deal(Game& game, Deck& deck) {
     // clear board
-    hand.board.clear();
+    game.board.clear();
     
     // clear players' previous hands
-    for (auto& player : hand.players) {
+    for (auto& player : game.players) {
         player.hand.clear();
     }
 
@@ -92,48 +92,66 @@ void deal(Hand& hand, Deck& deck) {
     shuffle(deck);
 
     // deal cards to players (starting with small blind)
-    size_t n = hand.players.size();
-    size_t smallBlind = prev(hand.bigBlind, n);
+    size_t n = game.players.size();
+    size_t smallBlind = prev(game.bigBlind, n);
     // outer loop to deal around twice
     for (size_t i = 0; i < 2; i++) {
         // inner loop to deal to each player
         for (size_t j = 0; j < n; j++) {
             size_t index = (smallBlind + i) % n;
-            hand.players[index].hand.emplace_back(deck.cards.back());
+            game.players[index].hand.emplace_back(deck.cards.back());
             deck.cards.pop_back();
         }
     }
 } // deal
 
-void dealFlop(Hand& hand, Deck& deck) {
+void dealFlop(Game& game, Deck& deck) {
     for (int i = 0; i < 3; i++) {
-        hand.board.emplace_back(deck.cards.back());
+        game.board.emplace_back(deck.cards.back());
         deck.cards.pop_back();
     }
 } // dealFlop
 
-void dealOne(Hand& hand, Deck& deck) { // (for dealing turn and river)
-    hand.board.emplace_back(deck.cards.back());
+void dealOne(Game& game, Deck& deck) { // (for dealing turn and river)
+    game.board.emplace_back(deck.cards.back());
     deck.cards.pop_back();
 } // dealOne
+
+void playTurn(Player& player, int currBet) {
+    return; // placeholder
+}
+
+void playHand(Game& game, Deck& deck) {
+    return; // placeholder
+} // playHand
+
+// Main Functionality
 
 int main() {
     // welcome message
     cout << "Welcome to No-Limit Hold 'Em! Please enter your name: ";
     string name;
     cin >> name;
-    cout << "Welcome " << name << "! Blinds are..."; // add blinds here
+    cout << "Welcome to the table " << name << "! Blinds are 50/100\n"; // change blinds if needed?
+    cout << "Would you like to learn how to play? (Y/N)";
+    char input;
+    cin >> input;
+    if (toupper(input) == 'Y') {
+        cout << "<help message here>";
+    }
     
-    // create players vector and human player
-    vector<Player> players;
-    players.emplace_back(Player(name, false));
+    // create game object and human player
+    Game game;
+    game.players.emplace_back(Player(name, false));
     
     // create CPU players
     for (int i = 1; i < 6; i++) {
         string name = "bot";
         name += static_cast<char>(i);
-        players.emplace_back(Player(name, true));
+        game.players.emplace_back(Player(name, true));
     }
+
+
     
     return 0;
 }
