@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <random>
 #include <queue>
+#include <iostream>
 using namespace std;
 
 // Enum Classes
@@ -25,9 +26,16 @@ struct Card {
 }; // Card
 
 struct Player {
+    string name;
     vector<Card> hand;
-    double chipCount;
-    bool CPU;
+    double chipCount = 0;
+    bool CPU = true;
+
+    // Player constructor
+    Player(string n, bool b) {
+        name = n;
+        CPU = b;
+    }
 }; // Player
 
 struct Deck {
@@ -47,7 +55,8 @@ struct Deck {
 struct Hand {
     vector<Player> players;
     queue<Card> cards;
-    int bigBlind;
+    size_t bigBlind;
+    vector<Card> board;
 }; // Hand
 
 // Helper Functions
@@ -55,43 +64,76 @@ struct Hand {
 // Shuffle function using Fisher-Yates Shuffle
 void shuffle(Deck& deck) {
     static random_device rd;
-    static mt19937 gen(rd);
+    static mt19937 gen(rd());
     shuffle(deck.cards.begin(), deck.cards.end(), gen);
 } // shuffle
 
 // returns index of next player
-int next(int pos, int n) {
+size_t next(size_t pos, size_t n) {
     return (pos + 1) % n;
 }
 
 // returns index of previous player
-int prev(int pos, int n) {
+size_t prev(size_t pos, size_t n) {
     return (pos - 1) % n;
 }
 
 void deal(Hand& hand, Deck& deck) {
+    // clear board
+    hand.board.clear();
+    
     // clear players' previous hands
     for (auto& player : hand.players) {
         player.hand.clear();
     }
+
     
     // shuffle deck
     shuffle(deck);
 
     // deal cards to players (starting with small blind)
-    int n = hand.players.size();
-    int smallBlind = prev(hand.bigBlind, n);
+    size_t n = hand.players.size();
+    size_t smallBlind = prev(hand.bigBlind, n);
     // outer loop to deal around twice
-    for (int i = 0; i < 2; i++) {
+    for (size_t i = 0; i < 2; i++) {
         // inner loop to deal to each player
-        for (int j = 0; j < n; j++) {
-            int index = (smallBlind + i) % n;
+        for (size_t j = 0; j < n; j++) {
+            size_t index = (smallBlind + i) % n;
             hand.players[index].hand.emplace_back(deck.cards.back());
             deck.cards.pop_back();
         }
     }
 } // deal
 
+void dealFlop(Hand& hand, Deck& deck) {
+    for (int i = 0; i < 3; i++) {
+        hand.board.emplace_back(deck.cards.back());
+        deck.cards.pop_back();
+    }
+} // dealFlop
+
+void dealOne(Hand& hand, Deck& deck) { // (for dealing turn and river)
+    hand.board.emplace_back(deck.cards.back());
+    deck.cards.pop_back();
+} // dealOne
+
 int main() {
+    // welcome message
+    cout << "Welcome to No-Limit Hold 'Em! Please enter your name: ";
+    string name;
+    cin >> name;
+    cout << "Welcome " << name << "! Blinds are..."; // add blinds here
+    
+    // create players vector and human player
+    vector<Player> players;
+    players.emplace_back(Player(name, false));
+    
+    // create CPU players
+    for (int i = 1; i < 6; i++) {
+        string name = "bot";
+        name += static_cast<char>(i);
+        players.emplace_back(Player(name, true));
+    }
+    
     return 0;
 }
