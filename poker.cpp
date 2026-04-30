@@ -1,5 +1,6 @@
 #include <vector>
-
+#include <algorithm>
+#include <random>
 using namespace std;
 
 // Enum Classes
@@ -14,6 +15,12 @@ enum Rank {ACE = 1, TWO, THREE, FOUR, FIVE, SIX,
 struct Card {
     Suit suit;
     Rank rank;
+
+    // Card constructor
+    Card(int s, int r) {
+        suit = static_cast<Suit>(s);
+        rank = static_cast<Rank>(r);
+    }
 }; // Card
 
 struct Player {
@@ -22,10 +29,16 @@ struct Player {
 }; // Player
 
 struct Deck {
-    vector<Card> deck;
+    vector<Card> cards;
 
+    // Deck default constructor
     Deck() {
-        deck.reserve(52);
+        cards.reserve(52);
+        for (int s = 0; s < 4; s++) {
+            for (int r = 0; r < 13; r++) {
+                cards.push_back(Card(s, r));
+            }
+        }
     }
 }; // Deck
 
@@ -35,8 +48,11 @@ struct Game {
 
 // Helper Functions
 
+// Shuffle function using Fisher-Yates Shuffle
 void shuffle(Deck& deck) {
-
+    static random_device rd;
+    static mt19937 gen(rd);
+    shuffle(deck.cards.begin(), deck.cards.end(), gen);
 } // shuffle
 
 int main() {
