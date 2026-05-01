@@ -30,6 +30,8 @@ struct Player {
     vector<Card> hand;
     int chipCount = 0;
     bool CPU = true;
+    bool folded = false;
+    bool isAllIn = false;
 
     // Player constructor
     Player(string n, bool b) {
@@ -57,6 +59,7 @@ struct Game {
     queue<Card> cards;
     size_t bigBlind;
     vector<Card> board;
+    size_t pot;
 }; // Game
 
 // Helper Functions
@@ -82,9 +85,11 @@ void deal(Game& game, Deck& deck) {
     // clear board
     game.board.clear();
     
-    // clear players' previous hands
+    // clear players' previous hands and set folded and isAllIn to false
     for (auto& player : game.players) {
         player.hand.clear();
+        player.folded = false;
+        player.isAllIn = false;
     }
 
     
@@ -117,9 +122,53 @@ void dealOne(Game& game, Deck& deck) { // (for dealing turn and river)
     deck.cards.pop_back();
 } // dealOne
 
-void playTurn(Player& player, int currBet) {
-    return; // placeholder
-}
+size_t playTurn(Player& player, size_t currBet) { // returns the amount added to pot
+    if (player.CPU) {
+        // CPU player logic here
+        return 0;
+    }
+    else {
+        cout << player.name << "'s turn, current bet is " << currBet << "\n";
+        cout << "Enter your decision: ";
+        char move;
+        cin >> move;
+        if (move == 'F') {
+            player.folded = true;
+            cout << player.name << " folds\n";
+            return 0;
+        }
+        else if (move == 'C') {
+            if (player.chipCount <= currBet) {
+                size_t bet = player.chipCount;
+                player.chipCount = 0;
+                player.isAllIn = true;
+                cout << player.name << " is all in\n";
+                return bet;
+            }
+            else {
+                player.chipCount -= currBet;
+                cout << player.name << " calls\n";
+                return currBet;
+            }
+        }
+        else if (move == 'R') {
+           size_t bet;
+           cin >> bet;
+           while (bet < (2 * currBet)) {
+                cout << "Raise amount must be at least double the current bet, please enter new amount: ";
+                cin >> bet;
+           }
+           player.chipCount -= bet;
+           cout << player.name << " raises to " << bet << "\n";
+           return bet;
+        }
+        else {
+            cout << "Invalid move\n";
+            playTurn(player, currBet);
+            return 0;
+        }
+    }
+} // playTurn
 
 void playHand(Game& game, Deck& deck) {
     return; // placeholder
@@ -133,11 +182,11 @@ int main() {
     string name;
     cin >> name;
     cout << "Welcome to the table " << name << "! Blinds are 50/100\n"; // change blinds if needed?
-    cout << "Would you like to learn how to play? (Y/N)";
+    cout << "Would you like to learn how to play? (Y/N)\n";
     char input;
     cin >> input;
     if (toupper(input) == 'Y') {
-        cout << "<help message here>";
+        cout << "<help message here>\n";
     }
     
     // create game object and human player
@@ -151,7 +200,7 @@ int main() {
         game.players.emplace_back(Player(name, true));
     }
 
-
+    playTurn(game.players[0], 0);
     
     return 0;
 }
