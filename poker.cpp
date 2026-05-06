@@ -171,7 +171,15 @@ size_t playTurn(Player& player, size_t currBet) { // returns the amount added to
 } // playTurn
 
 void playHand(Game& game, Deck& deck) {
-    return; // placeholder
+    // set small and big blind
+    game.players[prev(game.bigBlind, game.players.size())].chipCount -= 50;
+    game.players[game.bigBlind].chipCount -= 100;
+    game.pot = 150;
+    
+    // pre-flop betting
+    for (size_t i = next(game.bigBlind, game.players.size()); i < game.players.size(); i++) {
+        return; // placeholder
+    }
 } // playHand
 
 // Main Functionality
