@@ -1,214 +1,215 @@
 #include <vector>
+#include <string>
+#include <iostream>
 #include <algorithm>
 #include <random>
-#include <queue>
-#include <iostream>
 using namespace std;
 
 // Enum Classes
 
-enum Suit { Spades, Clubs, Hearts, Diamonds };
+enum class Suit { Hearts, Diamonds, Clubs, Spades };
 
-enum Rank {ACE = 1, TWO, THREE, FOUR, FIVE, SIX,
-            SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING };
+enum class Rank { TWO = 2, THREE, FOUR, FIVE, SIX,
+            SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING, ACE };
+
+enum class Street { PREFLOP, FLOP, TURN, RIVER };
 
 // Custom Containers
 
 struct Card {
     Suit suit;
     Rank rank;
-
-    // Card constructor
-    Card(int s, int r) {
-        suit = static_cast<Suit>(s);
-        rank = static_cast<Rank>(r);
-    }
 }; // Card
-
-struct Player {
-    string name;
-    vector<Card> hand;
-    int chipCount = 0;
-    bool CPU = true;
-    bool folded = false;
-    bool isAllIn = false;
-
-    // Player constructor
-    Player(string n, bool b) {
-        name = n;
-        CPU = b;
-    }
-}; // Player
 
 struct Deck {
     vector<Card> cards;
-
-    // Deck default constructor
-    Deck() {
-        cards.reserve(52);
-        for (int s = 0; s < 4; s++) {
-            for (int r = 0; r < 13; r++) {
-                cards.push_back(Card(s, r));
-            }
-        }
-    }
 }; // Deck
 
-struct Game {
-    vector<Player> players;
-    queue<Card> cards;
-    size_t bigBlind;
+struct GameState {
+    vector<Card> hole_cards;
     vector<Card> board;
-    size_t pot;
-}; // Game
+
+    int pot;
+    int stack;
+    int bet;
+    int position;   // 0 = UTG, 1 = MP, etc.
+    int players;
+
+    Street street;
+}; // GameState
 
 // Helper Functions
 
-// Shuffle function using Fisher-Yates Shuffle
-void shuffle(Deck& deck) {
-    static random_device rd;
-    static mt19937 gen(rd());
+void initializeDeck(Deck& deck) {
+    deck.cards.clear();
+    for (int suit = 0; suit < 4; suit++) {
+        for (int rank = 2; rank <= 14; rank++) {
+            Card card;
+            card.suit = static_cast<Suit>(suit);
+            card.rank = static_cast<Rank>(rank);
+            deck.cards.push_back(card);
+        }
+    }
+} // initializeDeck
+
+void shuffleDeck(Deck& deck) {
+    random_device rd;
+    mt19937 gen(rd());
     shuffle(deck.cards.begin(), deck.cards.end(), gen);
-} // shuffle
+} // shuffleDeck
 
-// returns index of next player
-size_t next(size_t pos, size_t n) {
-    return (pos + 1) % n;
-}
+Card dealCard(Deck& deck) {
+    Card card = deck.cards.back();
+    deck.cards.pop_back();
+    return card;
+} // dealCard
 
-// returns index of previous player
-size_t prev(size_t pos, size_t n) {
-    return (pos - 1) % n;
-}
+void removeKnown(Deck& deck, const Card& target) {
+    for (auto it = deck.cards.begin(); it != deck.cards.end(); it++) {
+        if (it->rank == target.rank && it->suit == target.suit) {
+            deck.cards.erase(it);
+            return;
+        }
+    }
+} // removeKnown
 
-void deal(Game& game, Deck& deck) {
-    // clear board
+int evaluateHand() {
+    return 1; // placeholder, need to code
+} // evaluateHand
+
+Card parseCard(string s) {
+    Card card;
+
+    // read in rank
+    if (s[0] == 'J') { card.rank = Rank::JACK; }
+    else if (s[0] == 'Q') { card.rank = Rank::QUEEN; }
+    else if (s[0] == 'K') { card.rank = Rank::KING; }
+    else if (s[0] == 'A') { card.rank = Rank::ACE; }
+    else {
+        card.rank = static_cast<Rank>(s[0]);
+    }
+
+    // read in suit
+    if (s[1] == 'h') { card.suit = Suit::Hearts; }
+    else if (s[1] == 'd') { card.suit = Suit::Diamonds; }
+    else if (s[1] == 'c') { card.suit = Suit::Clubs; }
+    else { card.suit = Suit::Spades; }
+
+    return card;
+} // parseCard
+
+void getStreet(GameState& game) {
+    char input;
+    cout << "Enter street (enter the first letter of preflop/flop/turn/river): ";
+    cin >> input;
+    if (input == 'p') { game.street = Street::PREFLOP; }
+    else if (input == 'f') { game.street = Street::FLOP; }
+    else if (input == 't') { game.street = Street::TURN; }
+    else { game.street = Street::RIVER; }
+} // getStreet
+
+void getHandInfo(GameState& game) {
+    // clear previous cards
+    game.hole_cards.clear();
     game.board.clear();
     
-    // clear players' previous hands and set folded and isAllIn to false
-    for (auto& player : game.players) {
-        player.hand.clear();
-        player.folded = false;
-        player.isAllIn = false;
-    }
-
+    // read in hole cards
+    string c1, c2;
+    cout << "Enter hole cards: ";
+    cin >> c1 >> c2;
+    game.hole_cards.push_back(parseCard(c1));
+    game.hole_cards.push_back(parseCard(c2));
     
-    // shuffle deck
-    shuffle(deck);
-
-    // deal cards to players (starting with small blind)
-    size_t n = game.players.size();
-    size_t smallBlind = prev(game.bigBlind, n);
-    // outer loop to deal around twice
-    for (size_t i = 0; i < 2; i++) {
-        // inner loop to deal to each player
-        for (size_t j = 0; j < n; j++) {
-            size_t index = (smallBlind + i) % n;
-            game.players[index].hand.emplace_back(deck.cards.back());
-            deck.cards.pop_back();
-        }
+    // check street, read in board cards if necessary
+    getStreet(game);
+    if (game.street == Street::FLOP) {
+        string b1, b2, b3;
+        cout << "Enter board cards: ";
+        cin >> b1 >> b2 >> b3;
+        game.board.push_back(parseCard(b1));
+        game.board.push_back(parseCard(b2));
+        game.board.push_back(parseCard(b3));
     }
-} // deal
-
-void dealFlop(Game& game, Deck& deck) {
-    for (int i = 0; i < 3; i++) {
-        game.board.emplace_back(deck.cards.back());
-        deck.cards.pop_back();
+    else if (game.street == Street::TURN) {
+        string b1, b2, b3, b4;
+        cout << "Enter board cards: ";
+        cin >> b1 >> b2 >> b3 >> b4;
+        game.board.push_back(parseCard(b1));
+        game.board.push_back(parseCard(b2));
+        game.board.push_back(parseCard(b3));
+        game.board.push_back(parseCard(b4));
     }
-} // dealFlop
-
-void dealOne(Game& game, Deck& deck) { // (for dealing turn and river)
-    game.board.emplace_back(deck.cards.back());
-    deck.cards.pop_back();
-} // dealOne
-
-size_t playTurn(Player& player, size_t currBet) { // returns the amount added to pot
-    if (player.CPU) {
-        // CPU player logic here
-        return 0;
+    else if (game.street == Street::RIVER) {
+        string b1, b2, b3, b4, b5;
+        cout << "Enter board cards: ";
+        cin >> b1 >> b2 >> b3 >> b4 >> b5;
+        game.board.push_back(parseCard(b1));
+        game.board.push_back(parseCard(b2));
+        game.board.push_back(parseCard(b3));
+        game.board.push_back(parseCard(b4));
+        game.board.push_back(parseCard(b5));
     }
-    else {
-        cout << player.name << "'s turn, current bet is " << currBet << "\n";
-        cout << "Enter your decision: ";
-        char move;
-        cin >> move;
-        if (move == 'F') {
-            player.folded = true;
-            cout << player.name << " folds\n";
-            return 0;
-        }
-        else if (move == 'C') {
-            if (player.chipCount <= currBet) {
-                size_t bet = player.chipCount;
-                player.chipCount = 0;
-                player.isAllIn = true;
-                cout << player.name << " is all in\n";
-                return bet;
-            }
-            else {
-                player.chipCount -= currBet;
-                cout << player.name << " calls\n";
-                return currBet;
-            }
-        }
-        else if (move == 'R') {
-           size_t bet;
-           cin >> bet;
-           while (bet < (2 * currBet)) {
-                cout << "Raise amount must be at least double the current bet, please enter new amount: ";
-                cin >> bet;
-           }
-           player.chipCount -= bet;
-           cout << player.name << " raises to " << bet << "\n";
-           return bet;
-        }
-        else {
-            cout << "Invalid move\n";
-            playTurn(player, currBet);
-            return 0;
-        }
-    }
-} // playTurn
 
-void playHand(Game& game, Deck& deck) {
-    // set small and big blind
-    game.players[prev(game.bigBlind, game.players.size())].chipCount -= 50;
-    game.players[game.bigBlind].chipCount -= 100;
-    game.pot = 150;
-    
-    // pre-flop betting
-    for (size_t i = next(game.bigBlind, game.players.size()); i < game.players.size(); i++) {
-        return; // placeholder
+    // read in betting info
+    int pot, bet, stack;
+    cout << "Enter pot size: ";
+    cin >> pot;
+    game.pot = pot;
+    cout << "Enter bet to call: ";
+    cin >> bet;
+    game.bet = bet;
+    cout << "Enter stack size: ";
+    cin >> stack;
+    game.stack = stack;
+} // getHandInfo
+
+double computePotOdds(const GameState& game) {
+    return (double)game.bet / (game.pot + game.bet);
+} // computePotOdds
+
+double estimate_equity(const GameState& game, int simulations) {    // uses Monte Carlo simulation (equity = wins / simulations)
+    int wins = 0;
+    int ties = 0;
+    for (int i = 0; i < simulations; i++) {
+        // create and initialize deck
+        Deck deck;
+        initializeDeck(deck);
+
+        // remove hole and board cards from deck
+        for (Card c : game.hole_cards) {
+            removeKnown(deck, c);
+        }
+        for (Card c : game.board) {
+            removeKnown(deck, c);
+        }
+
+        // shuffle deck and deal opponent hand
+        shuffleDeck(deck);
+        vector<Card> opponentHand;
+        opponentHand.push_back(dealCard(deck));
+        opponentHand.push_back(dealCard(deck));
+
+        // complete board if neeeded
+        vector<Card> completeBoard = game.board;
+        while (completeBoard.size() < 5) {
+            completeBoard.push_back(dealCard(deck));
+        }
+
+        // build full 7-card hands and evaluate
+        vector<Card> heroCards = game.hole_cards;
+        heroCards.insert(heroCards.end(), completeBoard.begin(), completeBoard.end());
+        vector<Card> villainCards = opponentHand;
+        villainCards.insert(villainCards.end(), completeBoard.begin(), completeBoard.end());
+        // need to code evaluateHand function and use here
     }
-} // playHand
+
+    return wins + ties; // placeholder
+}
 
 // Main Functionality
 
 int main() {
-    // welcome message
-    cout << "Welcome to No-Limit Hold 'Em! Please enter your name: ";
-    string name;
-    cin >> name;
-    cout << "Welcome to the table " << name << "! Blinds are 50/100\n"; // change blinds if needed?
-    cout << "Would you like to learn how to play? (Y/N)\n";
-    char input;
-    cin >> input;
-    if (toupper(input) == 'Y') {
-        cout << "<help message here>\n";
-    }
-    
-    // create game object and human player
-    Game game;
-    game.players.emplace_back(Player(name, false));
-    
-    // create CPU players
-    for (int i = 1; i < 6; i++) {
-        string name = "bot";
-        name += static_cast<char>(i);
-        game.players.emplace_back(Player(name, true));
-    }
-
-    playTurn(game.players[0], 0);
-    
-    return 0;
+    GameState game;
+    getHandInfo(game);
+    return 1;
 }
