@@ -3,18 +3,21 @@
 #include <iostream>
 #include <algorithm>
 #include <random>
+#include <unordered_map>
 using namespace std;
 
-// Enum Classes
+// ENUM CLASSES
 
-enum class Suit { Hearts, Diamonds, Clubs, Spades };
+enum class Suit { HEARTS, DIAMONDS, CLUBS, SPADES };
 
 enum class Rank { TWO = 2, THREE, FOUR, FIVE, SIX,
             SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING, ACE };
 
 enum class Street { PREFLOP, FLOP, TURN, RIVER };
 
-// Custom Containers
+enum class HandCategory { HIGH_CARD, PAIR, TWO_PAIR, TRIPS, STRAIGHT, FLUSH, FULL_HOUSE, QUADS, STRAIGHT_FLUSH };
+
+// CUSTOM CONTAINERS
 
 struct Card {
     Suit suit;
@@ -38,7 +41,12 @@ struct GameState {
     Street street;
 }; // GameState
 
-// Helper Functions
+struct HandRank {
+    HandCategory category;
+    vector<int> ranks;
+}; // HandRank
+
+// HELPER FUNCTIONS
 
 void initializeDeck(Deck& deck) {
     deck.cards.clear();
@@ -73,8 +81,202 @@ void removeKnown(Deck& deck, const Card& target) {
     }
 } // removeKnown
 
-int evaluateHand() {
-    return 1; // placeholder, need to code
+HandRank evaluateHand(vector<Card> hand) {
+    int rankCount[13] = {0};
+    int suitCount[4] = {0};
+
+    // count number of ranks and suits
+    for (const Card& c : hand) {
+        rankCount[static_cast<int>(c.rank) - 2]++;
+        suitCount[static_cast<int>(c.suit)]++;
+    }
+    
+    // check if flush exists
+    bool flush = false;
+    Suit flushSuit;
+    vector<Card> flushCards;
+    for (int i = 0; i < 4; i++) {
+        if (suitCount[i] >= 5) {
+            flush = true;
+            flushSuit = static_cast<Suit>(i);
+            break;
+        }
+    }
+    if (flush) {
+        for (const Card& c : hand) {
+            if (c.suit == flushSuit) { flushCards.push_back(c); }
+        }
+    }
+
+    // check if straight exists
+    bool rankExists[13] = {false};
+    for (int i = 0; i < 13; i++) {
+        if (rankCount[i] > 0) { rankExists[i] = true; }
+    }
+    bool straight = false;
+    int straightHigh = -1;
+    int streak = 0;
+    for (int i = 12; i >= 0; i--) {
+        if (rankExists[i]) {
+            streak++;
+            if (streak >= 5) {
+                straight = true;
+                straightHigh = i;
+                break;
+            }
+        }
+        else {
+            streak = 0;
+        }
+    }
+    // check wheel straight
+    if (!straight && rankExists[12] && rankExists[0] && rankExists[1] && rankExists[2] && rankExists[3]) {
+        straight = true;
+        straightHigh = 3;
+    }
+
+    // straight flush
+    if (flush) {
+        bool flushRankExists[13] = {false};
+        for (const Card& c : flushCards) {
+            int rankIndex = static_cast<int>(c.rank) - 2;
+            flushRankExists[rankIndex] = true;
+        }
+        streak = 0;
+        for (int i = 12; i >=0; i--) {
+            if (flushRankExists[i]) {
+                streak++;
+                if (streak >= 5) {
+                    return {HandCategory::STRAIGHT_FLUSH, {i + 4}};
+                }
+            }
+            else {
+                streak = 0;
+            }
+        }
+        // check wheel straight flush
+        if (!straight && flushRankExists[12] && flushRankExists[0] && flushRankExists[1] && flushRankExists[2] && flushRankExists[3]) {
+            return {HandCategory::STRAIGHT_FLUSH, {3}};
+        }
+    }
+
+    // quads
+    for (int i = 12; i >= 0; i--) {
+        if (rankCount[i] == 4) {
+            vector<int> ranks;
+            ranks.push_back(i);
+            // check kicker
+            for (int j = 12; j >= 0; j--) {
+                if (j == i) { continue; }
+                if (rankCount[j] > 0) {
+                    ranks.push_back(j);
+                    break;
+                }
+            }
+            return {HandCategory::QUADS, ranks};
+        }
+    }
+
+    // full house
+    int tripsRank = -1;
+    int pairRank = -1;
+    for (int i = 12; i >= 0; i--) {
+        if (rankCount[i] == 3) {
+            tripsRank = i;
+        }
+        else if (rankCount[i] == 2) {
+            pairRank = i;
+        }
+        if (tripsRank != -1 && pairRank != -1) {
+            return {HandCategory::FULL_HOUSE, {tripsRank, pairRank}};
+        }
+    }
+
+    // flush
+    if (flush) {
+        int flushHigh = -1;
+        for (const Card& c : flushCards) {
+            int rankIndex = static_cast<int>(c.rank) - 2;
+            flushHigh = max(rankIndex, flushHigh);
+        }
+        return {HandCategory::FLUSH, {flushHigh}};
+    }
+
+    // straight
+    if (straight) {
+        return {HandCategory::STRAIGHT, {straightHigh}};
+    }
+
+    // trips
+    for (int i = 12; i >= 0; i--) {
+        if (rankCount[i] == 3) {
+            vector<int> ranks;
+            ranks.push_back(i);
+            // check kickers
+            for (int j = 12; j >= 0; j--) {
+                if (j == i) { continue; }
+                if (rankCount[j] > 0) {
+                    ranks.push_back(j);
+                    if (ranks.size() == 3) { break; }
+                }
+            }
+            return {HandCategory::TRIPS, ranks};
+        }
+    }
+
+    // two pair
+    int pair1 = -1;
+    int pair2 = -1;
+    for (int i = 12; i >= 0; i--) {
+        if (rankCount[i] == 2) {
+            if (pair1 == -1) {
+                pair1 = i;
+            }
+            else {
+                pair2 = i;
+                break;
+            }
+        }
+    }
+    // check kicker
+    if (pair1 != -1 && pair2 != -1) {
+        vector<int> ranks;
+        ranks.push_back(pair1);
+        ranks.push_back(pair2);
+        for (int i = 12; i >= 0; i--) {
+            if (i == pair1 || i == pair2) { continue; }
+            if (rankCount[i] > 0) {
+                ranks.push_back(i);
+                break;
+            }
+        }
+        return {HandCategory::TWO_PAIR, ranks};
+    }
+
+    // pair
+    if (pair1 != -1) {
+        vector<int> ranks;
+        ranks.push_back(pair1);
+        // check kicker
+        for (int i = 12; i >= 0; i--) {
+            if (i == pair1) { continue; }
+            if (rankCount[i] > 0) {
+                ranks.push_back(i);
+                if (ranks.size() == 4) { break; }
+            }
+        }
+        return {HandCategory::PAIR, ranks};
+    }
+
+    // high card
+    vector<int> highCards;
+    for (int i = 12; i >= 0; i--) {
+        if (rankCount[i] > 0) {
+            highCards.push_back(i);
+            if (highCards.size() == 5) { break; }
+        }
+    }
+    return {HandCategory::HIGH_CARD, highCards};
 } // evaluateHand
 
 Card parseCard(string s) {
@@ -90,10 +292,10 @@ Card parseCard(string s) {
     }
 
     // read in suit
-    if (s[1] == 'h') { card.suit = Suit::Hearts; }
-    else if (s[1] == 'd') { card.suit = Suit::Diamonds; }
-    else if (s[1] == 'c') { card.suit = Suit::Clubs; }
-    else { card.suit = Suit::Spades; }
+    if (s[1] == 'h') { card.suit = Suit::HEARTS; }
+    else if (s[1] == 'd') { card.suit = Suit::DIAMONDS; }
+    else if (s[1] == 'c') { card.suit = Suit::CLUBS; }
+    else { card.suit = Suit::SPADES; }
 
     return card;
 } // parseCard
@@ -206,7 +408,7 @@ double estimate_equity(const GameState& game, int simulations) {    // uses Mont
     return wins + ties; // placeholder
 }
 
-// Main Functionality
+// MAIN FUNCTIONALITY
 
 int main() {
     GameState game;
