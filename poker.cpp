@@ -369,7 +369,7 @@ double computePotOdds(const GameState& game) {
     return (double)game.bet / (game.pot + game.bet);
 } // computePotOdds
 
-double estimate_equity(const GameState& game, int simulations) {    // uses Monte Carlo simulation (equity = wins / simulations)
+double estimate_equity(const GameState& game, int simulations, int numPlayers) {    // uses Monte Carlo simulation (equity = wins / simulations)
     int wins = 0;
     int ties = 0;
     for (int i = 0; i < simulations; i++) {
@@ -385,11 +385,15 @@ double estimate_equity(const GameState& game, int simulations) {    // uses Mont
             removeKnown(deck, c);
         }
 
-        // shuffle deck and deal opponent hand
+        // shuffle deck and deal opponent(s) hand
         shuffleDeck(deck);
-        vector<Card> opponentHand;
-        opponentHand.push_back(dealCard(deck));
-        opponentHand.push_back(dealCard(deck));
+        vector<vector<Card>> opponentHands;
+        for (int i = 0; i < numPlayers - 1; i++) {
+            vector<Card> opponentHand;
+            opponentHand.push_back(dealCard(deck));
+            opponentHand.push_back(dealCard(deck));
+            opponentHands.push_back(opponentHand);
+        }
 
         // complete board if neeeded
         vector<Card> completeBoard = game.board;
@@ -398,14 +402,27 @@ double estimate_equity(const GameState& game, int simulations) {    // uses Mont
         }
 
         // build full 7-card hands and evaluate
-        vector<Card> heroCards = game.hole_cards;
-        heroCards.insert(heroCards.end(), completeBoard.begin(), completeBoard.end());
-        vector<Card> villainCards = opponentHand;
-        villainCards.insert(villainCards.end(), completeBoard.begin(), completeBoard.end());
-        // need to code evaluateHand function and use here
+        vector<Card> myHand = game.hole_cards;
+        myHand.insert(myHand.end(), completeBoard.begin(), completeBoard.end());
+        HandRank villain = {HandCategory::HIGH_CARD, {0}};
+        for (int i = 0; i < numPlayers - 1; i++) {
+            opponentHands[i].insert(opponentHands[i].end(), completeBoard.begin(), completeBoard.end());
+            HandRank curr = evaluateHand(opponentHands[i]);
+            if ((curr.category > villain.category) || (curr.category == villain.category && curr.ranks > villain.ranks)) {
+                villain = curr;
+            }
+        }
+        HandRank hero = evaluateHand(myHand);
+        if ((hero.category > villain.category) || (hero.category == villain.category && hero.ranks > villain.ranks)) {
+            wins++;
+        }
+        else if (hero.category == villain.category && hero.ranks == villain.ranks) {
+            ties++;
+        }
     }
 
-    return wins + ties; // placeholder
+    // compute and return equity
+    return (wins + ties * 0.5) / simulations;
 }
 
 // MAIN FUNCTIONALITY
