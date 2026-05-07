@@ -1,2 +1,2 @@
 # Poker-Game
-No-Limit Hold 'Em One Player Game
+Advice bot for No Limit Texas Hold 'Em
