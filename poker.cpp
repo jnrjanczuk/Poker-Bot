@@ -15,6 +15,12 @@ enum class Rank { TWO = 2, THREE, FOUR, FIVE, SIX,
 
 enum class Street { PREFLOP, FLOP, TURN, RIVER };
 
+// overloaded Street increment operator
+Street& operator++(Street& street) {
+    street = static_cast<Street>(static_cast<int>(street) + 1);
+    return street;
+}
+
 enum class HandCategory { HIGH_CARD, PAIR, TWO_PAIR, TRIPS, STRAIGHT, FLUSH, FULL_HOUSE, QUADS, STRAIGHT_FLUSH };
 
 enum class Action { FOLD, CHECK, CALL, BET, RAISE };
@@ -38,6 +44,7 @@ struct GameState {
     int stack;
     int bet;
     int players;
+    int bigBlind;
 
     Street street;
 }; // GameState
@@ -326,12 +333,6 @@ void getHandInfo(GameState& game) {
     // clear previous cards
     game.hole_cards.clear();
     game.board.clear();
-
-    // read in number of players
-    int numPlayers;
-    cout << "Enter the total number of players in the game: ";
-    cin >> numPlayers;
-    game.players = numPlayers;
     
     // read in hole cards
     string c1, c2;
@@ -495,6 +496,27 @@ Decision recommendAction(const GameState& game) {
     return result;
 } // recommendAction()
 
+void getGameInfo(GameState& game) {
+    // read in number of players
+    int numPlayers;
+    cout << "Enter the total number of players in the game: ";
+    cin >> numPlayers;
+    game.players = numPlayers;
+
+    // read in stack
+    int stack;
+    cout << "Enter your stack size: ";
+    cin >> stack;
+    game.stack = stack;
+
+    // read in blinds
+    int bigBlind;
+    cout << "Enter the Big Blind amount: ";
+    cin >> bigBlind;
+    game.bigBlind = bigBlind;
+
+} // getGameInfo()
+
 void outputAction(Decision decision) {
     cout << "Recommended Action: ";
     if (decision.action == Action::FOLD) {
@@ -519,11 +541,74 @@ void outputAction(Decision decision) {
     }
 } // outputAction()
 
+void playHand(GameState& game) {
+    game.street = Street::PREFLOP;
+    Decision decision = {Action::CHECK, 0};
+
+    // clear previous cards
+    game.hole_cards.clear();
+    game.board.clear();
+    
+    // read in hole cards
+    string c1, c2;
+    cout << "Enter hole cards: ";
+    cin >> c1 >> c2;
+    game.hole_cards.push_back(parseCard(c1));
+    game.hole_cards.push_back(parseCard(c2));
+
+    while (game.street <= Street::RIVER && decision.action != Action::FOLD) {
+        // enter new board cards as necessary
+        if (game.street == Street::FLOP) {
+            string b1, b2, b3;
+            cout << "Enter flop: ";
+            cin >> b1 >> b2 >> b3;
+            game.board.push_back(parseCard(b1));
+            game.board.push_back(parseCard(b2));
+            game.board.push_back(parseCard(b3));
+        }
+        else if (game.street == Street::TURN) {
+            string b4;
+            cout << "Enter turn: ";
+            cin >> b4;
+            game.board.push_back(parseCard(b4));
+        }
+        else if (game.street == Street::RIVER) {
+            string b4;
+            cout << "Enter river: ";
+            cin >> b4;
+            game.board.push_back(parseCard(b4));
+        }
+
+        // read in betting info
+        int pot, bet;
+        cout << "Enter pot size: ";
+        cin >> pot;
+        game.pot = pot;
+        cout << "Enter bet to call: ";
+        cin >> bet;
+        game.bet = bet;
+
+        // calculate and output decision
+        decision = recommendAction(game);
+        outputAction(decision);
+
+        // update stack
+        if (decision.betSize != 0) {
+            game.stack -= decision.betSize;
+        }
+
+        // go to next iteration
+        ++game.street;
+        char c;
+        cout << "Press any key to continue ";
+        cin >> c;
+    }
+}
+
 // MAIN FUNCTIONALITY
 
 int main() {
     GameState game;
-    getHandInfo(game);
-    Decision action = recommendAction(game);
-    outputAction(action);
+    getGameInfo(game);
+    playHand(game);
 } // main()
