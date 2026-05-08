@@ -433,7 +433,8 @@ double estimateEquity(const GameState& game, int simulations, int numPlayers) { 
 } // estimateEquity()
 
 Decision recommendAction(const GameState& game) {
-    return {Action::FOLD};
+    Decision result;
+    return result;
 } // recommendAction()
 
 // MAIN FUNCTIONALITY
