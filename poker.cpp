@@ -17,6 +17,8 @@ enum class Street { PREFLOP, FLOP, TURN, RIVER };
 
 enum class HandCategory { HIGH_CARD, PAIR, TWO_PAIR, TRIPS, STRAIGHT, FLUSH, FULL_HOUSE, QUADS, STRAIGHT_FLUSH };
 
+enum class Action { FOLD, CALL, BET, RAISE };
+
 // CUSTOM CONTAINERS
 
 struct Card {
@@ -46,6 +48,11 @@ struct HandRank {
     vector<int> ranks;
 }; // HandRank
 
+struct Decision {
+    Action action;
+    double betSize;
+}; // Decision
+
 // HELPER FUNCTIONS
 
 void initializeDeck(Deck& deck) {
@@ -58,19 +65,19 @@ void initializeDeck(Deck& deck) {
             deck.cards.push_back(card);
         }
     }
-} // initializeDeck
+} // initializeDeck()
 
 void shuffleDeck(Deck& deck) {
     random_device rd;
     mt19937 gen(rd());
     shuffle(deck.cards.begin(), deck.cards.end(), gen);
-} // shuffleDeck
+} // shuffleDeck()
 
 Card dealCard(Deck& deck) {
     Card card = deck.cards.back();
     deck.cards.pop_back();
     return card;
-} // dealCard
+} // dealCard()
 
 void removeKnown(Deck& deck, const Card& target) {
     for (auto it = deck.cards.begin(); it != deck.cards.end(); it++) {
@@ -79,7 +86,7 @@ void removeKnown(Deck& deck, const Card& target) {
             return;
         }
     }
-} // removeKnown
+} // removeKnown()
 
 HandRank evaluateHand(vector<Card> hand) {
     int rankCount[13] = {0};
@@ -277,7 +284,7 @@ HandRank evaluateHand(vector<Card> hand) {
         }
     }
     return {HandCategory::HIGH_CARD, highCards};
-} // evaluateHand
+} // evaluateHand()
 
 Card parseCard(string s) {
     Card card;
@@ -298,7 +305,7 @@ Card parseCard(string s) {
     else { card.suit = Suit::SPADES; }
 
     return card;
-} // parseCard
+} // parseCard()
 
 void getStreet(GameState& game) {
     char input;
@@ -308,7 +315,7 @@ void getStreet(GameState& game) {
     else if (input == 'f') { game.street = Street::FLOP; }
     else if (input == 't') { game.street = Street::TURN; }
     else { game.street = Street::RIVER; }
-} // getStreet
+} // getStreet()
 
 void getHandInfo(GameState& game) {
     // clear previous cards
@@ -363,13 +370,13 @@ void getHandInfo(GameState& game) {
     cout << "Enter stack size: ";
     cin >> stack;
     game.stack = stack;
-} // getHandInfo
+} // getHandInfo()
 
 double computePotOdds(const GameState& game) {
     return (double)game.bet / (game.pot + game.bet);
-} // computePotOdds
+} // computePotOdds()
 
-double estimate_equity(const GameState& game, int simulations, int numPlayers) {    // uses Monte Carlo simulation (equity = wins / simulations)
+double estimateEquity(const GameState& game, int simulations, int numPlayers) {    // uses Monte Carlo simulation (equity = wins / simulations)
     int wins = 0;
     int ties = 0;
     for (int i = 0; i < simulations; i++) {
@@ -423,7 +430,11 @@ double estimate_equity(const GameState& game, int simulations, int numPlayers) {
 
     // compute and return equity
     return (wins + ties * 0.5) / simulations;
-}
+} // estimateEquity()
+
+Decision recommendAction(const GameState& game) {
+    return {Action::FOLD};
+} // recommendAction()
 
 // MAIN FUNCTIONALITY
 
@@ -431,4 +442,4 @@ int main() {
     GameState game;
     getHandInfo(game);
     return 1;
-}
+} // main()
