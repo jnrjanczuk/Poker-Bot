@@ -110,7 +110,7 @@ HandRank evaluateHand(vector<Card> hand) {
     }
     if (flush) {
         for (const Card& c : hand) {
-            if (c.suit == flushSuit) { flushCards.push_back(c); }
+            if (c.suit == flushSuit) flushCards.push_back(c);
         }
     }
 
@@ -173,7 +173,7 @@ HandRank evaluateHand(vector<Card> hand) {
             ranks.push_back(i);
             // check kicker
             for (int j = 12; j >= 0; j--) {
-                if (j == i) { continue; }
+                if (j == i) continue;
                 if (rankCount[j] > 0) {
                     ranks.push_back(j);
                     break;
@@ -195,6 +195,12 @@ HandRank evaluateHand(vector<Card> hand) {
         }
         if (tripsRank != -1 && pairRank != -1) {
             return {HandCategory::FULL_HOUSE, {tripsRank, pairRank}};
+        }
+    }
+    if (tripsRank != -1 && pairRank == -1) {
+        for (int i = 12; i >= 0; i--) {
+            if (i == tripsRank) continue;
+            if (rankCount[i] >= 2) { pairRank = i; break; }
         }
     }
 
@@ -294,7 +300,7 @@ Card parseCard(string s) {
     else if (s[0] == 'K') { card.rank = Rank::KING; }
     else if (s[0] == 'A') { card.rank = Rank::ACE; }
     else {
-        card.rank = static_cast<Rank>(s[0]);
+        card.rank = static_cast<Rank>(s[0] - '0');
     }
 
     // read in suit
@@ -446,7 +452,7 @@ Decision recommendAction(const GameState& game) {
     double equity = estimateEquity(game, 10000);
 
     // adjust threshold for number of players
-    double threshold = potOdds + 0.05 * (game.players - 2);
+    double threshold = potOdds + 0.02 * (game.players - 2);
 
     // fold
     if (equity < threshold) {
@@ -474,11 +480,11 @@ Decision recommendAction(const GameState& game) {
     else {
         result.action = Action::RAISE;
     }
-    if (equity <= (threshold + 0.1) && equity < (threshold + 0.2)) {
+    if (equity >= (threshold + 0.1) && equity < (threshold + 0.2)) {
         result.betSize = min(static_cast<double>(game.stack), (game.pot * 0.5));
         return result;
     }
-    else if (equity <= (threshold + 0.2) && equity < (threshold + 0.3)) {
+    else if (equity >= (threshold + 0.2) && equity < (threshold + 0.3)) {
         result.betSize = min(static_cast<double>(game.stack), (game.pot * 0.75));
         return result;
     }
