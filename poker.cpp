@@ -17,7 +17,7 @@ enum class Street { PREFLOP, FLOP, TURN, RIVER };
 
 enum class HandCategory { HIGH_CARD, PAIR, TWO_PAIR, TRIPS, STRAIGHT, FLUSH, FULL_HOUSE, QUADS, STRAIGHT_FLUSH };
 
-enum class Action { FOLD, CALL, BET, RAISE };
+enum class Action { FOLD, CHECK, CALL, BET, RAISE };
 
 // CUSTOM CONTAINERS
 
@@ -37,7 +37,6 @@ struct GameState {
     int pot;
     int stack;
     int bet;
-    int position;   // 0 = UTG, 1 = MP, etc.
     int players;
 
     Street street;
@@ -321,6 +320,12 @@ void getHandInfo(GameState& game) {
     // clear previous cards
     game.hole_cards.clear();
     game.board.clear();
+
+    // read in number of players
+    int numPlayers;
+    cout << "Enter the total number of players in the game: ";
+    cin >> numPlayers;
+    game.players = numPlayers;
     
     // read in hole cards
     string c1, c2;
@@ -376,7 +381,7 @@ double computePotOdds(const GameState& game) {
     return (double)game.bet / (game.pot + game.bet);
 } // computePotOdds()
 
-double estimateEquity(const GameState& game, int simulations, int numPlayers) {    // uses Monte Carlo simulation (equity = wins / simulations)
+double estimateEquity(const GameState& game, int simulations) {    // uses Monte Carlo simulation (equity = wins / simulations)
     int wins = 0;
     int ties = 0;
     for (int i = 0; i < simulations; i++) {
@@ -395,7 +400,7 @@ double estimateEquity(const GameState& game, int simulations, int numPlayers) { 
         // shuffle deck and deal opponent(s) hand
         shuffleDeck(deck);
         vector<vector<Card>> opponentHands;
-        for (int i = 0; i < numPlayers - 1; i++) {
+        for (int i = 0; i < game.players - 1; i++) {
             vector<Card> opponentHand;
             opponentHand.push_back(dealCard(deck));
             opponentHand.push_back(dealCard(deck));
@@ -412,7 +417,7 @@ double estimateEquity(const GameState& game, int simulations, int numPlayers) { 
         vector<Card> myHand = game.hole_cards;
         myHand.insert(myHand.end(), completeBoard.begin(), completeBoard.end());
         HandRank villain = {HandCategory::HIGH_CARD, {0}};
-        for (int i = 0; i < numPlayers - 1; i++) {
+        for (int i = 0; i < game.players - 1; i++) {
             opponentHands[i].insert(opponentHands[i].end(), completeBoard.begin(), completeBoard.end());
             HandRank curr = evaluateHand(opponentHands[i]);
             if ((curr.category > villain.category) || (curr.category == villain.category && curr.ranks > villain.ranks)) {
@@ -434,13 +439,85 @@ double estimateEquity(const GameState& game, int simulations, int numPlayers) { 
 
 Decision recommendAction(const GameState& game) {
     Decision result;
+    result.betSize = 0;
+
+    // compute pot odds and equity
+    double potOdds = computePotOdds(game);
+    double equity = estimateEquity(game, 10000);
+
+    // adjust threshold for number of players
+    double threshold = potOdds + 0.05 * (game.players - 2);
+
+    // fold
+    if (equity < threshold) {
+        result.action = Action::FOLD;
+        return result;
+    }
+    
+    // check/call
+    if (equity >= threshold && equity < (threshold + 0.1)) {
+        if (game.bet == 0) {
+            result.action = Action::CHECK;
+            return result;
+        }
+        else {
+            result.action = Action::CALL;
+            result.betSize = min(game.stack, game.bet);
+            return result;
+        }
+    }
+    
+    // bet/raise
+    if (game.bet == 0) {
+        result.action = Action::BET;
+    }
+    else {
+        result.action = Action::RAISE;
+    }
+    if (equity <= (threshold + 0.1) && equity < (threshold + 0.2)) {
+        result.betSize = min(static_cast<double>(game.stack), (game.pot * 0.5));
+        return result;
+    }
+    else if (equity <= (threshold + 0.2) && equity < (threshold + 0.3)) {
+        result.betSize = min(static_cast<double>(game.stack), (game.pot * 0.75));
+        return result;
+    }
+    else {
+        result.betSize = min(game.stack, game.pot);
+    }
+
     return result;
 } // recommendAction()
+
+void outputAction(Decision decision) {
+    cout << "Recommended Action: ";
+    if (decision.action == Action::FOLD) {
+        cout << "Fold\n";
+        return;
+    }
+    else if (decision.action == Action::CHECK) {
+        cout << "Check\n";
+        return;
+    }
+    else if (decision.action == Action::CALL) {
+        cout << "Call\n";
+        return;
+    }
+    else if (decision.action == Action::BET) {
+        cout << "Bet " << decision.betSize << "\n";
+        return;
+    }
+    else {
+        cout << "Raise " << decision.betSize << "\n";
+        return;
+    }
+} // outputAction()
 
 // MAIN FUNCTIONALITY
 
 int main() {
     GameState game;
     getHandInfo(game);
-    return 1;
+    Decision action = recommendAction(game);
+    outputAction(action);
 } // main()
